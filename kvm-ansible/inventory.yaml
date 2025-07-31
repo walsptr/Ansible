@@ -1,0 +1,20 @@
+kvm:
+  hosts:
+    local: {ansible_host: localhost}
+
+galera:
+  hosts:
+    galera-1: {ansible_host: galera-1}
+    galera-2: {ansible_host: galera-2}
+    galera-3: {ansible_host: galera-3}
+
+servers:
+  children:
+    kvm: {}
+    galera: {}
+
+all:
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_user: syawal
+    ansible_ssh_private_key_file: /home/syawal/.ssh/id_rsa

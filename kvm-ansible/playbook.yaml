@@ -1,0 +1,64 @@
+---
+- name: Manage multiple VMs with dynamic cloud-init
+  hosts: servers
+  become: true
+  vars:
+    vms:
+      - name: galera-1
+        memory: 2048
+        vcpus: 2
+        disk_size: 30G
+        ip_enp0s3: 192.168.15.51
+        ip_enp0s4: 192.168.113.51
+      - name: galera-2
+        memory: 2048
+        vcpus: 2
+        disk_size: 30G
+        ip_enp0s3: 192.168.15.52
+        ip_enp0s4: 192.168.113.52
+      - name: galera-3
+        memory: 2048
+        vcpus: 2
+        disk_size: 30G
+        ip_enp0s3: 192.168.15.53
+        ip_enp0s4: 192.168.113.53
+  tasks:
+    - name: Prepare for Provisioning VMs on KVM
+      include_tasks: ./tasks/prepare.yaml
+      tags: prepare
+
+    - name: Provision VMs via include_tasks
+      include_tasks: ./tasks/create_vm.yaml
+      loop: "{{ vms }}"
+      loop_control:
+        loop_var: vm
+      tags: create
+
+    - name: Update /etc/hosts di KVM host (bastion)
+      template:
+        src: ./templates/hosts.j2
+        dest: /etc/hosts
+      tags: create
+
+    - name: Remove VMs 
+      include_tasks: ./tasks/remove_vm.yaml
+      loop: "{{ vms }}"
+      loop_control:
+        loop_var: vm
+      tags: remove
+
+    - name: Manage VMs for doing start, stop & restart
+      include_tasks: ./tasks/manage_vm.yaml
+      loop: "{{ vms }}"
+      loop_control:
+        loop_var: vm
+      tags:
+        - start
+        - stop
+
+    - name: Setup Galera Cluster on VMs
+      include_tasks: ./tasks/galera.yaml
+      tags:
+        - galera
+        - check_galera
+

@@ -1,0 +1,14 @@
+[galera]
+wsrep_on                 = ON
+wsrep_cluster_name       = "{{ cluster_name }}"
+wsrep_cluster_address    = "gcomm://{% for ip in galera_hosts %}{{ ip }}{% if not loop.last %},{% endif %}{% endfor %}"
+binlog_format            = row
+default_storage_engine   = InnoDB
+innodb_autoinc_lock_mode = 2
+wsrep_provider           = /usr/lib/galera/libgalera_smm.so
+
+wsrep_node_name = "{{ node_name }}"
+wsrep_node_address = "{{ node_address }}"
+
+bind-address = 0.0.0.0
+wsrep_sst_method = rsync

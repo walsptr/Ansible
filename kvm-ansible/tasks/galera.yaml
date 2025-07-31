@@ -1,0 +1,73 @@
+- name: Update repository
+  ansible.builtin.apt:
+    update_cache: true
+  tags: galera
+
+- name: Install package mariadb package
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - mariadb-server
+    - mariadb-client
+    - mariadb-backup
+    - galera-4
+    - rsync
+  tags: galera
+
+- name: Generate galera config per node
+  template:
+    src: ../templates/galera.j2
+    dest: "/etc/mysql/mariadb.conf.d/60-galera.cnf"
+  vars:
+    galera_hosts: "{{ vms | map(attribute='ip_enp0s3') | list }}"
+    node_name: "{{ inventory_hostname }}"
+    node_address: "{{ vms | selectattr('name','==',inventory_hostname) | map(attribute='ip_enp0s3') | first }}"
+    cluster_name: "cluster_testing"
+  tags: galera
+
+- name: Stop service mysql on galera-1
+  ansible.builtin.systemd_service:
+    name: mysql
+    state: stopped
+  when: inventory_hostname == 'galera-1'
+  tags: galera
+
+- name: Inisialisasi cluster on galera-1
+  command: galera_new_cluster
+  when: inventory_hostname == 'galera-1'
+  tags: galera
+
+- name: Restart service mysql on VMs
+  ansible.builtin.systemd_service:
+    name: mysql
+    state: restarted
+  when: inventory_hostname in ['galera-2', 'galera-3']
+  tags: galera
+
+- name: Check jumlah node galera cluster
+  command: sudo mysql -u root -e "SHOW STATUS LIKE 'wsrep_cluster_size'"
+  register: galera_cluster_size
+  when: inventory_hostname == 'galera-1'
+  tags: 
+    - galera
+    - check_galera
+
+- name: Check synchronize galera cluster
+  command: sudo mysql -u root -e "SHOW STATUS LIKE 'wsrep_local_state_comment'"
+  register: galera_cluster_sync
+  when: inventory_hostname == 'galera-1'
+  tags: 
+    - galera
+    - check_galera
+
+- name: Debug check cluster
+  debug:
+    msg:
+      cluster_size: "{{ galera_cluster_size.stdout_lines[1].split('\t')[1] }}"
+      cluster_sync: "{{ galera_cluster_sync.stdout_lines[1].split('\t')[1] }}"
+  when: inventory_hostname == 'galera-1'
+  tags: 
+    - galera
+    - check_galera
+

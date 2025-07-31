@@ -1,0 +1,7 @@
+[servers]
+local ansible_host=localhost
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
+ansible_user=syawal
+ansible_ssh_private_key_file=/home/syawal/.ssh/id_rsa
