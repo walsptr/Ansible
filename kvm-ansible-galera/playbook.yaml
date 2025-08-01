@@ -7,19 +7,16 @@
       - name: galera-1
         memory: 2048
         vcpus: 2
-        disk_size: 30G
         ip_enp0s3: 192.168.15.51
         ip_enp0s4: 192.168.113.51
       - name: galera-2
         memory: 2048
         vcpus: 2
-        disk_size: 30G
         ip_enp0s3: 192.168.15.52
         ip_enp0s4: 192.168.113.52
       - name: galera-3
         memory: 2048
         vcpus: 2
-        disk_size: 30G
         ip_enp0s3: 192.168.15.53
         ip_enp0s4: 192.168.113.53
   tasks:
