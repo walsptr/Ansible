@@ -1,0 +1,26 @@
+kvm:
+  hosts:
+    local: {ansible_host: localhost}
+
+ind-south1:
+  hosts:
+    cockroachdb-1: {ansible_host: cockroachdb-1}
+    cockroachdb-2: {ansible_host: cockroachdb-2}
+    cockroachdb-3: {ansible_host: cockroachdb-3}
+ind-west1:
+  hosts:
+    cockroachdb-4: {ansible_host: cockroachdb-4}
+    cockroachdb-5: {ansible_host: cockroachdb-5}
+    cockroachdb-6: {ansible_host: cockroachdb-6}
+
+servers:
+  children:
+    kvm: {}
+    ind-south1: {}
+    ind-west1: {}
+
+all:
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_user: syawal
+    ansible_ssh_private_key_file: /home/syawal/.ssh/id_rsa

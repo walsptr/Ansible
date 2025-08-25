@@ -1,0 +1,28 @@
+#cloud-config
+hostname: {{ name }}
+users:
+  - name: syawal
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+write_files:
+  - path: /etc/netplan/50-cloud-init.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          enp0s3:
+            dhcp4: false
+            addresses: [{{ ip_enp0s3 }}/24]
+          enp0s4:
+            dhcp4: false
+            addresses: [{{ ip_enp0s4 }}/24]
+            gateway4: 192.168.113.2
+            nameservers:
+              addresses: [8.8.8.8]
+  - path: /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+    content: |
+      network: {config: disabled}
+runcmd:
+  - netplan apply
+  - echo "syawal:syawal123" | /usr/sbin/chpasswd
