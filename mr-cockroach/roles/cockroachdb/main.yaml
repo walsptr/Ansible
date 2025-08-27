@@ -1,0 +1,62 @@
+- name: Set timezone to Asia/Jakarta
+  community.general.timezone:
+    name: Asia/Jakarta
+  tags:
+    - cockroach
+- name: Create group cockroach
+  ansible.builtin.group:
+    name: cockroach
+    state: present
+  tags:
+    - cockroach
+
+- name: Create user for service CockroachDB
+  ansible.builtin.user:
+    name: cockroach
+    group: cockroach
+    home: /opt/cockroachdb
+    create_home: false
+    shell: /bin/bash
+  tags:
+    - cockroach
+
+- name: Create WorkDir
+  ansible.builtin.file:
+    path: /opt/cockroachdb
+    state: directory
+    mode: '0744'
+    owner: cockroach
+    group: cockroach
+  tags:
+    - cockroach
+
+- name: Download CockroachDB Binary
+  ansible.builtin.get_url:
+    url: https://binaries.cockroachdb.com/cockroach-v24.3.17.linux-amd64.tgz
+    dest: /opt/cockroachdb
+  tags:
+    - cockroach
+
+- name: Extract cockroachdb binary to workdir
+  ansible.builtin.unarchive:
+    src: /opt/cockroachdb/cockroach-v24.3.17.linux-amd64.tgz
+    dest: /opt/cockroachdb/
+    remote_src: yes
+  tags:
+    - cockroach
+
+- name: Copy Binary Cockroach
+  ansible.builtin.copy:
+    remote_src: true
+    src: /opt/cockroachdb/cockroach-v24.3.17.linux-amd64/cockroach
+    dest: /usr/local/bin
+    mode: '0755'
+  tags:
+    - cockroach
+
+- name: Delete archive cockroachdb
+  ansible.builtin.file:
+    path: /opt/cockroachdb/cockroach-v24.3.17.linux-amd64.tgz
+    state: absent
+  tags:
+    - cockroach

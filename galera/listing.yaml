@@ -1,0 +1,15 @@
+---
+- name: installation nginx
+  hosts: servers
+  become: yes
+  tasks:
+    - name: List all VMs
+      community.libvirt.virt:
+        command: list_vms
+      register: all_vms
+
+    - name: List only running VMs
+      community.libvirt.virt:
+        command: list_vms
+        state: running
+      register: running_vms

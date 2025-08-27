@@ -1,0 +1,10 @@
+127.0.0.1   localhost
+127.0.0.1   deb
+# VM hosts
+{% for vm in vms %}
+{{ vm.ip_enp0s3 }}   {{ vm.name }}
+{{ vm.ip_enp0s4 }}   {{ vm.name }}
+{% endfor %}
+
+# You can add static host below if needed
+

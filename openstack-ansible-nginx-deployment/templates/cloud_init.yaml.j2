@@ -1,0 +1,11 @@
+#cloud-config
+hostname: {{ instance_name }}
+users:
+  - name: ubuntu
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys: <ssh pubkey> 
+runcmd:
+  - echo "ubuntu:password" | /usr/sbin/chpasswd
+

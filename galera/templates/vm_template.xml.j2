@@ -1,0 +1,38 @@
+<domain type='kvm'>
+  <name>{{ vm_name }}</name>
+  <memory unit='MiB'>{{ memory }}</memory>
+  <vcpu>{{ vcpus }}</vcpu>
+  <os>
+    <type arch='x86_64' machine='pc'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <devices>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='{{ disk_path }}'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='{{ seed_iso_path }}'/>
+      <target dev='hdb' bus='ide'/>
+      <readonly/>
+    </disk>
+    <interface type='bridge'>
+      <source bridge='br0'/>
+      <model type='virtio'/>
+    </interface>
+    <interface type='bridge'>
+      <source bridge='br1'/>
+      <model type='virtio'/>
+    </interface>
+    <graphics type='vnc' port='-1' autoport='yes'/>
+    <console type='pty'>
+      <target type='serial' port='0'/>
+    </console>
+    <serial type='pty'>
+      <target port='0'/>
+    </serial>
+  </devices>
+</domain>
+

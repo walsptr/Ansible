@@ -1,0 +1,62 @@
+---
+- name: Manage multiple VMs with dynamic cloud-init
+  hosts: servers
+  become: true
+  vars:
+    vms:
+      - name: cockroachdb-1
+        memory: 2048
+        vcpus: 2
+        ip_enp0s3: 192.168.15.51
+        ip_enp0s4: 192.168.113.51
+      - name: cockroachdb-2
+        memory: 2048
+        vcpus: 2
+        ip_enp0s3: 192.168.15.52
+        ip_enp0s4: 192.168.113.52
+      - name: cockroachdb-3
+        memory: 2048
+        vcpus: 2
+        ip_enp0s3: 192.168.15.53
+        ip_enp0s4: 192.168.113.53
+      - name: cockroachdb-4
+        memory: 2048
+        vcpus: 2
+        ip_enp0s3: 192.168.15.54
+        ip_enp0s4: 192.168.113.54
+      - name: cockroachdb-5
+        memory: 2048
+        vcpus: 2
+        ip_enp0s3: 192.168.15.55
+        ip_enp0s4: 192.168.113.55
+      - name: cockroachdb-6
+        memory: 2048
+        vcpus: 2
+        ip_enp0s3: 192.168.15.56
+        ip_enp0s4: 192.168.113.56
+  tasks:
+    - name: Prepare for Provisioning VMs on KVM
+      include_tasks: ./roles/prepare/main.yaml
+      tags: prepare
+
+    - name: KVM Main Tasks
+      include_tasks: ./roles/kvm/main.yaml
+      loop: "{{ vms }}"
+      loop_control:
+        loop_var: vm
+      tags: 
+        - create
+        - start
+        - stop
+        - remove
+
+    - name: Update /etc/hosts di KVM host (bastion)
+      template:
+        src: ./templates/hosts.j2
+        dest: /etc/hosts
+      tags: create
+
+    - name: Deploy CockroachDB on Vms
+      include_tasks: ./roles/cockroachdb/main.yaml
+      tags:
+        - cockroach

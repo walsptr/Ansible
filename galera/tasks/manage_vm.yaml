@@ -1,0 +1,12 @@
+- name: Running VM "{{ vm.name }}"
+  community.libvirt.virt:
+    command: start
+    name: "{{ vm.name }}"
+  tags: start
+
+- name: Shutoff VM "{{ vm.name }}"
+  community.libvirt.virt:
+    command: destroy
+    name: "{{ vm.name }}"
+  tags: stop
+

@@ -1,0 +1,66 @@
+- name: Deploy VM + Floating IP + Install Nginx
+  hosts: localhost
+  gather_facts: false
+  collections:
+    - openstack.cloud
+
+  vars:
+    instance_name: nginx-vm
+    image_name: Ubuntu-22
+    flavor_name: m1.nano
+    network_name: testing
+    keypair_name: test
+    security_groups:
+      - default
+    floating_network: ext_net
+    cloud_name: mycloud
+
+  tasks:
+    - name: Render cloud-init user_data
+      template:
+        src: templates/cloud_init.yaml.j2
+        dest: /tmp/cloud_init_{{ instance_name }}.yaml
+
+    - name: Create instance with cloud-init
+      openstack.cloud.server:
+        cloud: "{{ cloud_name }}"
+        state: present
+        name: "{{ instance_name }}"
+        image: "{{ image_name }}"
+        flavor: "{{ flavor_name }}"
+        network: "{{ network_name }}"
+        key_name: "{{ keypair_name }}"
+        security_groups: "{{ security_groups }}"
+        boot_from_volume: true
+        terminate_volume: true
+        volume_size: 10
+        userdata: "{{ lookup('file', '/tmp/cloud_init_' + instance_name + '.yaml') }}"
+      register: vm_result
+
+    - name: Assign Floating IP
+      openstack.cloud.floating_ip:
+        cloud: "{{ cloud_name }}"
+        server: "{{ instance_name }}"
+        network: "{{ floating_network }}"
+        reuse: yes
+      register: fip_result
+
+    - name: Wait for SSH to become available
+      ansible.builtin.wait_for:
+        host: "{{ fip_result.floating_ip.floating_ip_address }}"
+        port: 22
+        timeout: 300
+
+    - name: Add instance to dynamic group
+      add_host:
+        name: nginx_target
+        ansible_host: "{{ fip_result.floating_ip.floating_ip_address }}"
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: ~/.ssh/id_rsa
+
+- name: Install Nginx
+  hosts: nginx_target
+  become: true
+  roles:
+    - install_nginx
+

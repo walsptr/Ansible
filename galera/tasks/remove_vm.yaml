@@ -1,0 +1,60 @@
+- name: Set paths for disk and cloud-init
+  set_fact:
+    disk_path: "/opt/instances/{{ vm.name }}.qcow2"
+    seed_iso_path: "/opt/cloud-init/{{ vm.name }}-seed.iso"
+    user_data_path: "/opt/cloud-init/{{ vm.name }}-user-data"
+    meta_data_path: "/opt/cloud-init/{{ vm.name }}-meta-data"
+  tags: remove
+
+- name: Cek apakah VM {{ vm.name }} ada
+  ansible.builtin.command: virsh dominfo "{{ vm.name }}"
+  register: vm_exist
+  ignore_errors: true
+  tags: remove
+
+- name: Check status VM yang Running
+  ansible.builtin.command: virsh domstate "{{ vm.name }}"
+  register: list_run_vm
+  when: vm_exist.rc == 0
+  tags: remove
+
+- name: Destroy VM "{{ vm.name }}"
+  community.libvirt.virt:
+    command: destroy
+    name: "{{ vm.name }}"
+  when: 
+    - vm_exist.rc == 0
+    - "'running' in list_run_vm.stdout"
+  tags: remove
+
+- name: Check status VM yang shutoff
+  ansible.builtin.command: virsh domstate "{{ vm.name }}"
+  register: list_off_vm
+  when: vm_exist.rc == 0
+  tags: remove
+
+- name: Undefine VM "{{ vm.name }}"
+  community.libvirt.virt:
+    command: undefine
+    name: "{{ vm.name }}"
+  when: 
+    - vm_exist.rc == 0
+    - "'shut off' in list_off_vm.stdout"
+  tags: remove
+
+- name: Delete the cloud init for "{{ vm.name }}"
+  ansible.builtin.command:
+    cmd: rm -rf "{{ seed_iso_path }}" "{{ user_data_path }}" "{{ meta_data_path }}"
+  tags: remove
+
+- name: Delete the qcow on path "{{ disk_path }}"
+  ansible.builtin.command:
+    cmd: rm -rf "{{ disk_path }}"
+  tags: remove
+
+- name: Remove old /etc/hosts entries
+  lineinfile:
+    path: /etc/hosts
+    regexp: "{{ vm.name }}"
+    state: absent
+  tags: remove

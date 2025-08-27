@@ -1,0 +1,61 @@
+- name: Cek apakah /opt/cloud-init/ sudah ada
+  stat:
+    path: /opt/cloud-init/
+  register: cloud_init_dir
+  tags: prepare
+
+- name: Buat direktori /opt/cloud-init/ jika belum ada
+  file:
+    path: /opt/cloud-init/
+    state: directory
+    owner: root
+    group: root
+    mode: '0744'
+  when: not cloud_init_dir.stat.exists
+  tags: prepare
+
+- name: Cek apakah /opt/images sudah ada
+  stat:
+    path: /opt/images
+  register: images_dir
+  tags: prepare
+
+- name: Buat direktori /opt/images jika belum ada
+  file:
+    path: /opt/images
+    state: directory
+    owner: root
+    group: root
+    mode: '0744'
+  when: not images_dir.stat.exists
+  tags: prepare
+
+- name: Cek apakah /opt/instances sudah ada
+  stat:
+    path: /opt/instances
+  register: instances_dir
+  tags: prepare
+
+- name: Buat direktori /opt/instances jika belum ada
+  file:
+    path: /opt/instances
+    state: directory
+    owner: root
+    group: root
+    mode: '0744'
+  when: not instances_dir.stat.exists
+  tags: prepare
+
+- name: Cek apakah file ubuntu-22.img sudah ada
+  stat:
+    path: /opt/images/ubuntu-22.img
+  register: ubuntu_img
+  tags: prepare
+
+- name: Download ubuntu-22.img jika belum ada
+  get_url:
+    url: https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+    dest: /opt/images/ubuntu-22.img
+    mode: '0644'
+  when: not ubuntu_img.stat.exists
+  tags: prepare
