@@ -1,0 +1,66 @@
+- name: Deploy K3s Cluster on OpenStack
+  hosts: localhost
+  gather_facts: false
+  collections:
+    - openstack.cloud
+  roles:
+    - provisioning
+
+- name: Install K3s Master
+  hosts: master-node
+  become: true
+  vars:
+    k3s_version: v1.30.0+k3s1
+  roles:
+    - install_k3s_master
+
+- name: Get Internal IP and Join Token from Master
+  hosts: master-node
+  gather_facts: false
+  tasks:
+    - name: Get internal IP of master
+      shell: hostname -I | awk '{print $1}'
+      register: master_internal_ip
+
+    - name: Get join token
+      shell: sudo cat /var/lib/rancher/k3s/server/node-token
+      register: join_token
+
+- name: Install K3s Worker Nodes
+  hosts:
+    - worker-node-1
+    - worker-node-2
+  become: true
+  vars:
+    k3s_version: v1.30.0+k3s1
+  roles:
+    - install_k3s_worker
+       
+- name: Post-setup Taint, Label, Calico, Ingress
+  hosts: master-node
+  become: true
+  roles:
+    - taint_and_label
+    - install_calico
+    - install_ingress
+    
+- name: Detach floating IP from worker nodes
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get all floating IPs
+      openstack.cloud.floating_ip_info:
+        cloud: "{{ cloud_name }}"
+      register: fip_info
+
+    - name: Include task to detach FIP for each worker
+      include_tasks: tasks/detach_single_fip.yml
+      loop: "{{ instances | selectattr('keep_fip', 'equalto', false) | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        instance_name: "{{ item.name }}"
+
+
+
+

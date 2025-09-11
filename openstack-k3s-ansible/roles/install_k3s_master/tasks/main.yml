@@ -1,0 +1,10 @@
+- name: Install K3s master node
+  shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION={{ k3s_version }} sh -s - server --cluster-init \
+      --flannel-backend=none --disable-network-policy \
+      --disable=traefik \
+      --cluster-cidr=10.1.0.0/16 \
+      --kube-controller-manager-arg 'bind-address=0.0.0.0' \
+      --kube-proxy-arg 'metrics-bind-address=0.0.0.0' \
+      --kube-proxy-arg 'healthz-bind-address=0.0.0.0' \
+      --kube-scheduler-arg 'bind-address=0.0.0.0'

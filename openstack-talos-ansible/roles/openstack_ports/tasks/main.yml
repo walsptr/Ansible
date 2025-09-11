@@ -1,0 +1,56 @@
+- name: Create port for jump host
+  openstack.cloud.port:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ ports.jump_port_name }}"
+    network: "{{ networking.net_name }}"
+    security_groups:
+      - "{{ security.jump_sg }}"
+      - "{{ security.talos_sg }}"
+  register: jump_port
+
+- name: Create controller ports (fixed names)
+  openstack.cloud.port:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ ports.controller_prefix }}-{{ item }}"
+    network: "{{ networking.net_name }}"
+    security_groups: ["{{ security.talos_sg }}"]
+  loop: "{{ range(0, servers.controller_count) | list }}"
+
+# === Ambil network_id via CLI ===
+- name: Get network ID by name (CLI)
+  ansible.builtin.command: >
+    openstack network show {{ networking.net_name }} -f value -c id
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  register: net_show
+  changed_when: false
+
+- name: Set fact network_id
+  ansible.builtin.set_fact:
+    _network_id: "{{ net_show.stdout | trim }}"
+
+# === Port info by network_id ===
+- name: Collect controller IPs
+  openstack.cloud.port_info:
+    cloud: "{{ openstack.cloud }}"
+    filters:
+      network_id: "{{ _network_id }}"
+  register: all_ports
+
+- name: Build list of controller fixed IPs
+  vars:
+    wanted: "{{ ports.controller_prefix }}-"
+  ansible.builtin.set_fact:
+    controller_fixed_ips: >-
+      {{
+      all_ports.openstack_ports
+      | selectattr('name', 'defined')
+      | selectattr('name', 'search', '^' ~ wanted)
+      | sort(attribute='name')
+      | map(attribute='fixed_ips')
+      | map('first')
+      | map(attribute='ip_address')
+      | list
+      }}

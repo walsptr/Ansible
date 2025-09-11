@@ -1,0 +1,77 @@
+- name: Create security group for jump host
+  openstack.cloud.security_group:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ security.jump_sg }}"
+    description: Jump/bastion host access
+
+- name: Allow SSH to jump from allowed CIDRs
+  loop: "{{ security.allow_cidrs }}"
+  loop_control: { loop_var: cidr }
+  openstack.cloud.security_group_rule:
+    cloud: "{{ openstack.cloud }}"
+    security_group: "{{ security.jump_sg }}"
+    direction: ingress
+    protocol: tcp
+    port_range_min: 22
+    port_range_max: 22
+    remote_ip_prefix: "{{ cidr }}"
+
+- name: Allow ICMP to jump (ping)
+  openstack.cloud.security_group_rule:
+    cloud: "{{ openstack.cloud }}"
+    security_group: "{{ security.jump_sg }}"
+    direction: ingress
+    protocol: icmp
+    remote_ip_prefix: 0.0.0.0/0
+
+- name: Create Talos/K8s security group
+  openstack.cloud.security_group:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ security.talos_sg }}"
+    description: Talos control-plane/worker rules
+
+- name: Allow Kubernetes API (6443)
+  openstack.cloud.security_group_rule:
+    cloud: "{{ openstack.cloud }}"
+    security_group: "{{ security.talos_sg }}"
+    direction: ingress
+    protocol: tcp
+    port_range_min: 6443
+    port_range_max: 6443
+    remote_ip_prefix: 0.0.0.0/0
+
+- name: Allow Talos control-plane (50000) and workers (50001)
+  loop:
+    - 50000
+    - 50001
+  loop_control: { loop_var: p }
+  openstack.cloud.security_group_rule:
+    cloud: "{{ openstack.cloud }}"
+    security_group: "{{ security.talos_sg }}"
+    direction: ingress
+    protocol: tcp
+    port_range_min: "{{ p }}"
+    port_range_max: "{{ p }}"
+    remote_ip_prefix: 0.0.0.0/0
+
+- name: Allow intra-cluster TCP/UDP/ICMP within Talos SG (east-west)
+  loop:
+  - { protocol: tcp }
+  - { protocol: udp }
+  - { protocol: icmp }
+  loop_control: { loop_var: rule }
+  openstack.cloud.security_group_rule:
+    cloud: "{{ openstack.cloud }}"
+    security_group: "{{ security.talos_sg }}"
+    direction: ingress
+    protocol: "{{ rule.protocol }}"
+    remote_group: "{{ security.talos_sg }}"
+
+- name: Ensure egress is allowed (default in many clouds, explicit here)
+  openstack.cloud.security_group_rule:
+    cloud: "{{ openstack.cloud }}"
+    security_group: "{{ security.talos_sg }}"
+    direction: egress
+    protocol: any

@@ -1,0 +1,43 @@
+- name: Ensure curl and jq present
+  ansible.builtin.package:
+    name: [curl, jq]
+    state: present
+
+- name: Install talosctl (idempotent)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if ! command -v talosctl >/dev/null 2>&1; then
+    curl -sL https://talos.dev/install | sh
+    fi
+  args:
+    executable: /bin/bash
+
+- name: Decide API endpoint (LB private vs public)
+  ansible.builtin.set_fact:
+    talos_api_endpoint: >-
+      {{ (hostvars['localhost'].lb_private_vip if talos.prefer_private_vip | bool else hostvars['localhost'].lb_public_vip | default(hostvars['localhost'].lb_private_vip)) }}
+
+- name: Generate Talos cluster/machine configs
+  ansible.builtin.command: >-
+    talosctl gen config {{ talos.cluster_name }} https://{{ talos_api_endpoint }}:{{ talos.kube_api_port }}
+  args:
+    chdir: "~"
+  changed_when: false
+
+- name: Ensure artifacts dir exists on control
+  delegate_to: localhost
+  ansible.builtin.file:
+    path: "{{ talos.artifacts_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Fetch generated files back to control node
+  loop:
+    - talosconfig
+    - controlplane.yaml
+    - worker.yaml
+  loop_control: { loop_var: f }
+  ansible.builtin.fetch:
+    src: "~/{{ f }}"
+    dest: "{{ talos.artifacts_dir }}/{{ f }}"
+    flat: true

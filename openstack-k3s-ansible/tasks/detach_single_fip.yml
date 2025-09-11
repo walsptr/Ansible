@@ -1,0 +1,16 @@
+- name: Get server info for {{ instance_name }}
+  openstack.cloud.server_info:
+    cloud: "{{ cloud_name }}"
+    server: "{{ instance_name }}"
+    wait: true
+  register: instance_info
+
+- name: Detach floating IP dari {{ instance_name }}
+  openstack.cloud.floating_ip:
+    cloud: "{{ cloud_name }}"
+    state: absent
+    server: "{{ instance_name }}"
+    floating_ip_address: "{{ instance_info.openstack_servers[0].public_v4 }}"
+    network: "{{ floating_network }}"
+  when: instance_info.openstack_servers[0].public_v4 is defined
+

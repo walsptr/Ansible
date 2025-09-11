@@ -1,0 +1,45 @@
+- name: Ensure artifacts directory exists on jump
+  ansible.builtin.file:
+    path: "~/artifacts"
+    state: directory
+    mode: "0755"
+
+- name: Ensure talosconfig present on jump
+  ansible.builtin.stat:
+    path: "~/artifacts/talosconfig"
+  register: tcfg
+
+- name: Push talosconfig from control node to jump
+  ansible.builtin.copy:
+    src: "{{ talos.artifacts_dir }}/talosconfig"
+    dest: "~/artifacts/talosconfig"
+    mode: "0600"
+  when: not tcfg.stat.exists
+
+- name: Configure talosctl endpoint to controller-0
+  ansible.builtin.command: >-
+    talosctl --talosconfig {{ talos.artifacts_dir }}/talosconfig config endpoint {{ hostvars['localhost'].controller0_ip }}
+  args: { chdir: "~" }
+
+
+- name: Configure talosctl node to controller-0
+  ansible.builtin.command: >-
+    talosctl --talosconfig {{ talos.artifacts_dir }}/talosconfig config node {{ hostvars['localhost'].controller0_ip }}
+  args: { chdir: "~" }
+
+
+- name: Bootstrap etcd (first control-plane)
+  ansible.builtin.command: >-
+    talosctl --talosconfig {{ talos.artifacts_dir }}/talosconfig bootstrap
+  args: { chdir: "~" }
+  register: bootstrap
+  changed_when: "'already' not in bootstrap.stdout"
+
+
+- name: Wait for Kubernetes API via LB to be reachable
+  ansible.builtin.wait_for:
+    host: "{{ (hostvars['localhost'].lb_private_vip if talos.prefer_private_vip | bool else hostvars['localhost'].lb_public_vip | default(hostvars['localhost'].lb_private_vip)) }}"
+    port: "{{ talos.kube_api_port }}"
+    delay: 10
+    timeout: 900
+    state: started

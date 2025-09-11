@@ -1,0 +1,6 @@
+- name: Create keypair for talos
+  openstack.cloud.keypair:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ openstack.keypair }}"
+    public_key_file: "{{ openstack.key_file }}"

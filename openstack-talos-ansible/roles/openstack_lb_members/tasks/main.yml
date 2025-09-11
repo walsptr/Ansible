@@ -1,0 +1,22 @@
+- name: Get subnet ID by name
+  ansible.builtin.command: >
+    openstack subnet show {{ networking.subnet.name }} -f value -c id
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  register: subnet_show
+  changed_when: false
+
+- name: Set fact subnet_id
+  ansible.builtin.set_fact:
+    subnet_id: "{{ subnet_show.stdout | trim }}"
+
+- name: Add each controller as LB pool member
+  openstack.cloud.lb_member:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    pool: "{{ lb.pool_name }}"
+    address: "{{ item }}"
+    name: "{{ item }}"
+    protocol_port: "{{ lb.protocol_port }}"
+    subnet_id: 
+  loop: "{{ controller_fixed_ips }}"

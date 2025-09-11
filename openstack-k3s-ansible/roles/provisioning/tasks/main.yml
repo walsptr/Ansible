@@ -1,0 +1,80 @@
+- name: Render cloud-init files
+  template:
+    src: templates/cloud_init.yaml.j2
+    dest: "/tmp/cloud_init_{{ item.name }}.yaml"
+  loop: "{{ instances }}"
+
+- name: Launch OpenStack instances
+  openstack.cloud.server:
+    cloud: "{{ cloud_name }}"
+    state: present
+    name: "{{ item.name }}"
+    image: "{{ image_name }}"
+    flavor: "{{ flavor }}"
+    network: "{{ network_name }}"
+    key_name: "{{ keypair_name }}"
+    security_groups: "{{ security_groups }}"
+    userdata: "{{ lookup('file', '/tmp/cloud_init_' + item.name + '.yaml') }}"
+    boot_from_volume: true
+    terminate_volume: true
+    volume_size: 10
+    wait: yes
+    timeout: 600
+    auto_ip: false
+  loop: "{{ instances }}"
+  register: server_results
+
+- name: Assign floating IPs
+  openstack.cloud.floating_ip:
+    cloud: "{{ cloud_name }}"
+    server: "{{ item.name }}"
+    network: "{{ floating_network }}"
+    reuse: yes
+    wait: yes
+  loop: "{{ instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Get server info for each instance
+  openstack.cloud.server_info:
+    cloud: "{{ cloud_name }}"
+    server: "{{ instance.name }}"
+    wait: true
+  loop: "{{ instances }}"
+  loop_control:
+    loop_var: instance
+    label: "{{ instance.name }}"
+  register: server_infos
+
+- name: Wait for SSH on each floating IP
+  wait_for:
+    host: "{{ server.openstack_servers[0].public_v4 }}"
+    port: 22
+    timeout: 600
+  loop: "{{ server_infos.results }}"
+  loop_control:
+    loop_var: server
+    label: "{{ server.instance.name }}"
+  when: server.openstack_servers[0].public_v4 is defined
+
+- name: Add host to inventory dynamically
+  add_host:
+    name: "{{ server.instance.name }}"
+    ansible_host: "{{ server.openstack_servers[0].public_v4 }}"
+    ansible_user: ubuntu
+    ansible_ssh_private_key_file: ~/.ssh/id_rsa
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+  loop: "{{ server_infos.results }}"
+  loop_control:
+    loop_var: server
+    label: "{{ server.instance.name }}"
+  when: server.openstack_servers[0].public_v4 is defined
+
+- name: Set fact for each floating IP
+  set_fact:
+    "{{ server.instance.name | replace('-', '_') ~ '_fip' }}": "{{ server.openstack_servers[0].public_v4 }}"
+  loop: "{{ server_infos.results }}"
+  loop_control:
+    loop_var: server
+    label: "{{ server.instance.name }}"
+  when: server.openstack_servers[0].public_v4 is defined

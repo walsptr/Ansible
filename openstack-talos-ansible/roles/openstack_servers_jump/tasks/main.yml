@@ -1,0 +1,20 @@
+- name: Check if jump host server exist or not
+  openstack.cloud.server_info:
+    cloud: "{{ openstack.cloud }}"
+    filters:
+      name: "{{ servers.jump_name }}"
+  register: jump_info
+
+- name: Create jump host server
+  openstack.cloud.server:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ servers.jump_name }}"
+    flavor: "{{ openstack.flavors.jump }}"
+    image: "{{ openstack.ubuntu_image_name }}"
+    key_name: "{{ openstack.keypair }}"
+    boot_from_volume: "{{ servers.boot_from_volume }}"
+    volume_size: "{{ servers.volume_size_gb }}"
+    nics:
+      - port-name: "{{ ports.jump_port_name }}"
+  when: jump_info.openstack_servers | length == 0

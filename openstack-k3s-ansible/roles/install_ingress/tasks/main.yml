@@ -1,0 +1,15 @@
+- name: Deploy ingress-nginx controller
+  shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.0/deploy/static/provider/baremetal/deploy.yaml
+
+- name: Wait for ingress controller pod to be running
+  shell: |
+    until kubectl get pods -n ingress-nginx | grep controller | grep Running; do
+      echo "Waiting for ingress controller to be ready..."
+      sleep 10
+    done
+
+- name: Patch service to LoadBalancer
+  shell: |
+    kubectl patch service ingress-nginx-controller \
+      -n ingress-nginx \
+      -p '{"spec": {"type": "LoadBalancer"}}'

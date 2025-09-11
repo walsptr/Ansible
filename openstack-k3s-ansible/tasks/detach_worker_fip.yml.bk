@@ -1,0 +1,30 @@
+- name: Detach floating IP from worker nodes
+  hosts: localhost
+  gather_facts: false
+  vars:
+    floating_network: public
+    cloud_name: mycloud
+    instances:
+      - name: master-node
+        with_fip: true
+        keep_fip: true
+      - name: worker-node-1
+        with_fip: true
+        keep_fip: false
+      - name: worker-node-2
+        with_fip: true
+        keep_fip: false
+  tasks:
+    - name: Get all floating IPs
+      openstack.cloud.floating_ip_info:
+        cloud: "{{ cloud_name }}"
+      register: fip_info
+
+    - name: Include task to detach FIP for each worker
+      include_tasks: detach_single_fip.yml
+      loop: "{{ instances | selectattr('keep_fip', 'equalto', false) | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        instance_name: "{{ item.name }}"
+

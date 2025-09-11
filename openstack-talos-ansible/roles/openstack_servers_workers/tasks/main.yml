@@ -1,0 +1,18 @@
+- name: Create worker servers (attach by network)
+  vars:
+    userdata_worker: "{{ lookup('file', talos.artifacts_dir ~ '/worker.yaml') }}"
+  openstack.cloud.server:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "talos-worker-{{ item }}"
+    flavor: "{{ openstack.flavors.worker }}"
+    image: "{{ openstack.talos_image_name }}"
+    key_name: "{{ openstack.keypair }}"
+    boot_from_volume: "{{ servers.boot_from_volume }}"
+    volume_size: "{{ servers.volume_size_gb }}"
+    userdata: "{{ userdata_worker }}"
+    auto_ip: "{{ servers.worker_float}}"
+    nics:
+      - net-name: "{{ networking.net_name }}"
+    security_groups: ["{{ security.talos_sg }}"]
+  loop: "{{ range(0, servers.worker_count) | list }}"

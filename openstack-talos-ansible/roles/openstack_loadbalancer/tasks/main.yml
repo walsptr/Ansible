@@ -1,0 +1,77 @@
+- name: Check if LB exists
+  ansible.builtin.command: >
+    openstack loadbalancer show {{ lb.name }}
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  register: lb_show
+  failed_when: false
+  changed_when: false
+
+- name: Create LB with OVN provider
+  ansible.builtin.command: >
+    openstack loadbalancer create
+    --provider ovn
+    --name {{ lb.name }}
+    --vip-subnet-id {{ networking.subnet.name }}
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  when: lb_show.rc != 0
+
+- name: Get LB details as JSON
+  ansible.builtin.command: >
+    openstack loadbalancer show {{ lb.name }} -f json
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  register: lb_json
+  changed_when: false
+
+- name: Parse LB JSON and set facts
+  ansible.builtin.set_fact:
+    _lb_obj: "{{ lb_json.stdout | from_json }}"
+    lb_id: "{{ (lb_json.stdout | from_json).vip_port_id }}"
+    lb_private_vip: "{{ (lb_json.stdout | from_json).vip_address }}"
+
+- name: Create listener for Kubernetes API
+  openstack.cloud.lb_listener:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ lb.listener_name }}"
+    protocol: "{{ lb.protocol }}"
+    protocol_port: "{{ lb.protocol_port }}"
+    loadbalancer: "{{ lb.name }}"
+    wait: true
+
+
+- name: Check if API pool exists
+  ansible.builtin.command: >
+    openstack loadbalancer pool show {{ lb.pool_name }} -f value -c id
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  register: pool_show
+  failed_when: false
+  changed_when: false
+
+- name: Create API pool with SOURCE_IP_PORT (OVN requirement)
+  ansible.builtin.command: >
+    openstack loadbalancer pool create
+    --name {{ lb.pool_name }}
+    --lb-algorithm SOURCE_IP_PORT
+    --listener {{ lb.listener_name }}
+    --protocol {{ lb.protocol }}
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  when: pool_show.rc != 0
+
+- name: Create health monitor for API pool
+  openstack.cloud.lb_health_monitor:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    pool: "{{ lb.pool_name }}"
+    delay: "{{ lb.healthmonitor.delay }}"
+    max_retries: "{{ lb.healthmonitor.max_retries }}"
+    timeout: "{{ lb.healthmonitor.timeout }}"
+    type: "{{ lb.healthmonitor.type }}"
+    name: "{{ lb.healthmonitor.name}}"
+    resp_timeout: "{{ lb.healthmonitor.timeout }}"
+    wait: true
+

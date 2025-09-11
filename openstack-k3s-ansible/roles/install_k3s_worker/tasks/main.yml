@@ -1,0 +1,5 @@
+- name: Join K3s worker node
+  shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION={{ k3s_version }} sh -s - agent \
+      --server https://{{ hostvars['master-node']['master_internal_ip'].stdout }}:6443 \
+      --token "{{ hostvars['master-node']['join_token'].stdout }}"

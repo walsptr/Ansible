@@ -1,0 +1,8 @@
+- name: Taint master node
+  shell: kubectl taint nodes master-node node-role.kubernetes.io/control-plane=control-plane:NoSchedule --overwrite
+
+- name: Label worker-node-1
+  shell: kubectl label node worker-node-1 node-role.kubernetes.io/worker=worker --overwrite
+
+- name: Label worker-node-2
+  shell: kubectl label node worker-node-2 node-role.kubernetes.io/worker=worker --overwrite

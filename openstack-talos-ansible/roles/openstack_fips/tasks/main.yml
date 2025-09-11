@@ -1,0 +1,37 @@
+- name: Allocate+associate FIP for jump host port
+  openstack.cloud.floating_ip:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    server: null
+    network: "{{ openstack.external_network }}"
+    server: "{{ servers.jump_name }}"
+  register: jump_fip
+
+- name: Set fact jump_public_vip
+  ansible.builtin.set_fact:
+    jump_public_vip: "{{ jump_fip.floating_ip.floating_ip_address }}"
+
+- name: Add dynamic inventory host for jump
+  ansible.builtin.add_host:
+    name: jump
+    ansible_host: "{{ jump_public_vip }}"
+    ansible_user: "{{ talos.jump_user }}"
+    groups: ["jump"]
+
+- name: Wait for SSH on jump
+  ansible.builtin.wait_for:
+    host: "{{ jump_public_vip }}"
+    port: 22
+    timeout: 600
+    state: started
+
+- name: Allocate+associate FIP to LB VIP
+  ansible.builtin.command: >
+    openstack floating ip create --port {{ lb_id }} {{ openstack.external_network }} -f json
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  register: lb_fip
+
+- name: Set fact lb_public_vip
+  ansible.builtin.set_fact:
+    lb_public_vip: "{{ ((lb_fip.stdout | from_json).floating_ip_address) }}"

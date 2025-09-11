@@ -1,0 +1,18 @@
+- name: Delete K3s instances
+  hosts: localhost
+  gather_facts: false
+  vars:
+    cloud_name: mycloud
+    instances:
+      - master-node
+      - worker-node-1
+      - worker-node-2
+
+  tasks:
+    - name: Delete instances
+      openstack.cloud.server:
+        cloud: "{{ cloud_name }}"
+        name: "{{ item }}"
+        state: absent
+        wait: yes
+      loop: "{{ instances }}"

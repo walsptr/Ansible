@@ -1,0 +1,39 @@
+- name: Provision OpenStack infrastructure
+  hosts: localhost
+  gather_facts: true
+  roles:
+    - openstack_networking
+    - openstack_keypair
+    - openstack_security
+    - openstack_loadbalancer
+    - openstack_images
+    - openstack_ports
+    - openstack_servers_jump
+    - openstack_fips
+
+- name: Install talosctl and generate configs on jump
+  hosts: jump
+  gather_facts: true
+  become: true
+  roles:
+    - talos_config
+
+- name: Create control plane nodes and attach to LB pool
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - openstack_servers_controlplane
+    - openstack_lb_members
+
+- name: Create worker nodes
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - openstack_servers_workers
+
+- name: Bootstrap Talos/etcd & Setup kube config
+  hosts: jump
+  gather_facts: true
+  roles:
+    - talos_bootstrap
+    - talos_kubeconfig

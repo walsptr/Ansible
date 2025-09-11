@@ -1,0 +1,28 @@
+- name: Create internal network
+  openstack.cloud.network:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ networking.net_name }}"
+
+
+- name: Create internal subnet
+  openstack.cloud.subnet:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ networking.subnet.name }}"
+    network_name: "{{ networking.net_name }}"
+    cidr: "{{ networking.subnet.cidr }}"
+    gateway_ip: "{{ networking.subnet.gateway_ip }}"
+    allocation_pool_start: "{{ networking.subnet.allocation_pool_start }}"
+    allocation_pool_end: "{{ networking.subnet.allocation_pool_end }}"
+    dns_nameservers: [8.8.8.8, 1.1.1.1]
+
+
+- name: Create router and attach subnet
+  openstack.cloud.router:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ networking.router_name }}"
+    network: "{{ openstack.external_network }}"
+    interfaces:
+    - "{{ networking.subnet.name }}"

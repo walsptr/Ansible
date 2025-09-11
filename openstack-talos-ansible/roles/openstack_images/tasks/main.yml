@@ -1,0 +1,57 @@
+- name: Ensure artifacts directory exists
+  ansible.builtin.file:
+    path: "{{ talos.artifacts_dir }}"
+    state: directory
+    mode: "0755"
+
+
+- name: Download Talos OpenStack image (xz)
+  ansible.builtin.get_url:
+    url: "{{ talos.image_url }}"
+    dest: "{{ talos.artifacts_dir }}/openstack-amd64.raw.xz"
+    mode: "0644"
+  register: talos_img_dl
+  retries: 5
+  delay: 5
+  until: talos_img_dl is succeeded
+
+- name: Stat downloaded xz
+  ansible.builtin.stat:
+    path: "{{ talos.artifacts_dir }}/openstack-amd64.raw.xz"
+  register: xz_stat
+
+- name: Fail early if download missing
+  ansible.builtin.fail:
+    msg: "Talos image XZ not found at {{ talos.artifacts_dir }}/openstack-amd64.raw.xz"
+  when: not xz_stat.stat.exists
+
+- name: Decompress xz to raw (idempotent)
+  ansible.builtin.command: >
+    xz --decompress -v {{ talos.artifacts_dir }}/openstack-amd64.raw.xz
+  args:
+    creates: "{{ talos.artifacts_dir }}/openstack-amd64.raw"
+
+- name: Upload Talos image to Glance
+  openstack.cloud.image:
+    cloud: "{{ openstack.cloud }}"
+    name: "{{ openstack.talos_image_name }}"
+    state: present
+    filename: "{{ talos.artifacts_dir }}/openstack-amd64.raw"
+    disk_format: raw
+    container_format: bare
+    properties:
+      hw_vif_multiqueue_enabled: "true"
+      hw_qemu_guest_agent: "yes"
+      hypervisor_type: kvm
+      img_config_drive: optional
+      hw_machine_type: q35
+      hw_firmware_type: uefi
+      os_require_quiesce: "yes"
+      os_type: linux
+      os_admin_user: talos
+      os_distro: talos
+      os_version: "{{ talos.version }}"
+    tags:
+    - siderolabs/iscsi-tools
+    - siderolabs/util-linux-tools
+    - siderolabs/qemu-guest-agent

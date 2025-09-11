@@ -1,0 +1,43 @@
+- name: Create control-plane servers using precreated ports
+  vars:
+    userdata_cp: "{{ lookup('file', talos.artifacts_dir ~ '/controlplane.yaml') }}"
+  openstack.cloud.server:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ ports.controller_prefix }}-{{ item }}"
+    flavor: "{{ openstack.flavors.controlplane }}"
+    image: "{{ openstack.talos_image_name }}"
+    key_name: "{{ openstack.keypair }}"
+    boot_from_volume: "{{ servers.boot_from_volume }}"
+    volume_size: "{{ servers.volume_size_gb }}"
+    userdata: "{{ userdata_cp }}"
+    auto_ip: "{{ servers.controller_float }}"
+    nics:
+      - port-name: "{{ ports.controller_prefix }}-{{ item }}"
+  loop: "{{ range(0, servers.controller_count) | list }}"
+
+- name: Get each controller port info by name
+  openstack.cloud.port_info:
+    cloud: "{{ openstack.cloud }}"
+    filters:
+      name: "{{ ports.controller_prefix }}-{{ item }}"
+  loop: "{{ range(0, servers.controller_count) | list }}"
+  register: _cp_ports
+
+- name: Build controller_fixed_ips and controller0_ip
+  ansible.builtin.set_fact:
+    controller_fixed_ips: >-
+      {{ _cp_ports.results
+         | map(attribute='openstack_ports')
+         | map('first')
+         | map(attribute='fixed_ips') | map('first')
+         | map(attribute='ip_address')
+         | list }}
+    controller0_ip: >-
+      {{ (_cp_ports.results
+          | selectattr('item','equalto',0)
+          | map(attribute='openstack_ports')
+          | map('first')
+          | map(attribute='fixed_ips') | map('first')
+          | map(attribute='ip_address')
+          | list | first) }}

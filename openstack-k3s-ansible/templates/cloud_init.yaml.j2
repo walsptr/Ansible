@@ -1,0 +1,12 @@
+#cloud-config
+hostname: {{ item.name }}
+timezone: Asia/Jakarta
+users:
+  - name: ubuntu
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - <ssh_key>
+runcmd:
+  - echo "ubuntu:password" | /usr/sbin/chpasswd
