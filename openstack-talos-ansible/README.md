@@ -1,7 +1,7 @@
 # 🚀 Talos Linux Multi-Master Deployment on OpenStack (RHOSP) with Ansible
 
 Ansible playbooks & roles to provision a **Talos Linux** Kubernetes cluster (multi-master, with load balancer) on **Red Hat OpenStack Platform (RHOSP)**.  
-This automation follows best-practice Ansible structure (roles, group_vars, inventories) and is idempotent.
+This automation follows best-practice Ansible structure (roles, group_vars, inventories).
 
 ---
 
