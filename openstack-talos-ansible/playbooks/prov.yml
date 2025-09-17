@@ -11,10 +11,20 @@
     - openstack_servers_jump
     - openstack_fips
 
+#- name: Install dependencies on Jump Host
+#  hosts: jump
+#  become: true
+#  gather_facts: false
+#  tasks:
+#    - name: Ensure curl and jq present
+#      ansible.builtin.package:
+#        name: [curl, jq]
+#        state: present
+
 - name: Install talosctl and generate configs on jump
   hosts: jump
   gather_facts: true
-  become: true
+  become: false
   roles:
     - talos_config
 
@@ -37,3 +47,5 @@
   roles:
     - talos_bootstrap
     - talos_kubeconfig
+    - talos_occm
+    - talos_ingress

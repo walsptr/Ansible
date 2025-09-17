@@ -15,6 +15,7 @@
     key_name: "{{ openstack.keypair }}"
     boot_from_volume: "{{ servers.boot_from_volume }}"
     volume_size: "{{ servers.volume_size_gb }}"
+    auto_ip: true
     nics:
       - port-name: "{{ ports.jump_port_name }}"
   when: jump_info.openstack_servers | length == 0

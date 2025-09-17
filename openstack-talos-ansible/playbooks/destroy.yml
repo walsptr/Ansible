@@ -1,0 +1,201 @@
+- name: Provision OpenStack infrastructure
+  hosts: localhost
+  gather_facts: true
+  tasks:
+    - name: Check if jump host server exist or not
+      openstack.cloud.server_info:
+        cloud: "{{ openstack.cloud }}"
+        filters:
+          name: "{{ servers.jump_name }}"
+      register: jump_info
+
+    - name: debug
+      debug: 
+        var: jump_info
+
+    - name: Set public v4
+      set_fact:
+        jump_public_v4: "{{ jump_info.openstack_servers[0].public_v4 }}"
+        jump_volume: "{{ jump_info.openstack_servers[0].volumes[0].id }}"
+      when: jump_info.openstack_servers | length > 0
+
+    - name: Detach Floating IP only if Present
+      openstack.cloud.floating_ip:
+        cloud: "{{ openstack.cloud }}" 
+        server: "{{ servers.jump_name }}"
+        floating_ip_address: "{{ jump_public_v4 }}"
+        network: "{{ networking.net_name }}"
+        state: absent
+        purge: true
+      when: jump_public_v4 is defined
+
+    - name: Delete server jump only if Present
+      openstack.cloud.server:
+        cloud: "{{ openstack.cloud }}"
+        name: "{{ servers.jump_name }}"
+        state: absent
+        wait: true
+      when: jump_info.openstack_servers | length > 0
+
+    - name: Delete volume jump server only if Present
+      openstack.cloud.volume:
+        cloud: "{{ openstack.cloud }}"
+        state: absent
+        name: "{{ jump_volume }}"
+        wait: true
+      when: jump_volume is defined
+
+    - name: Checking if port exist or not
+      openstack.cloud.port_info:
+        cloud: "{{ openstack.cloud }}"
+        filters:
+          name: "{{ ports.jump_port_name }}"
+      register: port_jump_info
+
+    - name: Delete port for jump host
+      openstack.cloud.port:
+        cloud: "{{ openstack.cloud }}"
+        state: absent
+        name: "{{ ports.jump_port_name }}"
+        network: "{{ networking.net_name }}"
+      when: port_jump_info | length > 0
+
+    - name: Check if worker server exist or not
+      openstack.cloud.server_info:
+        cloud: "{{ openstack.cloud }}"
+        filters:
+          name: "talos-worker-{{ item }}"
+      loop: "{{ range(0, servers.worker_count) | list }}"
+      register: worker_info
+
+    - name: Build per-server volume list (server name + volume IDs)
+      set_fact:
+        worker_volumes: "{{ worker_volumes|default([]) + [ {
+          'server': server_name,
+          'volume_ids': volume_ids 
+        } ] }}"
+      vars:
+        server_name: "talos-worker-{{ res.item }}"
+        server_obj: "{{ (res.openstack_servers|default([])) | first | default({}) }}"
+        volume_ids: "{{ (server_obj.volumes|default([])) | map(attribute='id') | list }}"
+      loop: "{{ worker_info.results }}"
+      loop_control:
+        loop_var: res
+
+    - name: Lihat hasil mapping server -> volumes
+      debug:
+        var: worker_volumes
+
+    - name: Delete worker server
+      openstack.cloud.server:
+        cloud: "{{ openstack.cloud }}"
+        name:  "talos-worker-{{ item }}"
+        state: absent
+      loop: "{{ range(0, servers.worker_count) | list }}"
+      when: worker_volumes | length > 0
+
+    - name: Delete all volumes for all worker servers
+      openstack.cloud.volume:
+        cloud: "{{ openstack.cloud }}"
+        name: "{{ item.1 }}"
+        state: absent
+        wait: true
+      loop: "{{ query('subelements', worker_volumes, 'volume_ids') }}"
+      when: item.1 | length > 0
+
+    - name: Check if controlplane server exist or not
+      openstack.cloud.server_info:
+        cloud: "{{ openstack.cloud }}"
+        filters:
+          name: "{{ ports.controller_prefix }}-{{ item }}"
+      loop: "{{ range(0, servers.controller_count) | list }}"
+      register: controlplane_info
+
+    - name: Build per-server volume list (server name + volume IDs)
+      set_fact:
+        cp_volumes: "{{ cp_volumes|default([]) + [ {
+          'server': server_name,
+          'volume_ids': volume_ids
+        } ] }}"
+      vars:
+        server_name: "{{ ports.controller_prefix }}-{{ res.item }}"
+        server_obj: "{{ (res.openstack_servers|default([])) | first | default({}) }}"
+        volume_ids: "{{ (server_obj.volumes|default([])) | map(attribute='id') | list }}"
+      loop: "{{ controlplane_info.results }}"
+      loop_control:
+        loop_var: res
+
+    - name: Lihat hasil mapping server -> volumes
+      debug:
+        var: cp_volumes
+
+    - name: Delete controlplane server
+      openstack.cloud.server:
+        cloud: "{{ openstack.cloud }}"
+        name:  "{{ ports.controller_prefix }}-{{ item }}"
+        state: absent
+      loop: "{{ range(0, servers.controller_count) | list }}"
+      when: cp_volumes | length > 0
+
+    - name: Delete all volumes for all controlplane servers
+      openstack.cloud.volume:
+        cloud: "{{ openstack.cloud }}"
+        name: "{{ item.1 }}"
+        state: absent
+        wait: true
+      loop: "{{ query('subelements', cp_volumes, 'volume_ids') }}"
+      when: item.1 | length > 0
+
+    - name: Checking if port exist or not
+      openstack.cloud.port_info:
+        cloud: "{{ openstack.cloud }}"
+        filters:
+          name: "{{ ports.controller_prefix }}-{{ item }}"
+      loop: "{{ range(0, servers.controller_count) | list }}"
+      register: port_controlplane_info
+
+    - name: Delete port for controlplane server
+      openstack.cloud.port:
+        cloud: "{{ openstack.cloud }}"
+        state: absent
+        name: "{{ ports.controller_prefix }}-{{ item }}"
+        network: "{{ networking.net_name }}"
+      loop: "{{ range(0, servers.controller_count) | list }}"
+      when: port_controlplane_info | length > 0
+
+    - name: Delete load balancer if exist
+      openstack.cloud.loadbalancer:
+        cloud: "{{ openstack.cloud }}"
+        name: "{{ lb.name }}"
+        state: absent
+        delete_public_ip: true
+
+    - name: Delete router if exists
+      openstack.cloud.router:
+        cloud: "{{ openstack.cloud }}"
+        name: "{{ networking.router_name }}"
+        state: absent
+
+    - name: Delete network if exists
+      openstack.cloud.network:
+        cloud: "{{ openstack.cloud }}"
+        name: "{{ networking.net_name }}"
+        state: absent
+
+    - name: Delete talos secgroup
+      openstack.cloud.security_group:
+        cloud: "{{ openstack.cloud }}"
+        name: "{{ security.talos_sg }}"
+        state: absent
+
+    - name: Delete jump secgroup
+      openstack.cloud.security_group:
+        cloud: "{{ openstack.cloud }}"
+        name: "{{ security.jump_sg }}"
+        state: absent
+
+    - name: Delete keypair
+      openstack.cloud.keypair:
+        cloud: "{{ openstack.cloud }}"
+        name: "{{ openstack.keypair }}"
+        state: absent

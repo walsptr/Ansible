@@ -40,6 +40,16 @@
     protocol: tcp
     port_range_min: 6443
     port_range_max: 6443
+    remote_ip_prefix: "{{ networking.subnet.cidr }}"
+
+- name: Allow HTTPS Connection (443)
+  openstack.cloud.security_group_rule:
+    cloud: "{{ openstack.cloud }}"
+    security_group: "{{ security.talos_sg }}"
+    direction: ingress
+    protocol: tcp
+    port_range_min: 443
+    port_range_max: 443
     remote_ip_prefix: 0.0.0.0/0
 
 - name: Allow Talos control-plane (50000) and workers (50001)
@@ -54,7 +64,7 @@
     protocol: tcp
     port_range_min: "{{ p }}"
     port_range_max: "{{ p }}"
-    remote_ip_prefix: 0.0.0.0/0
+    remote_ip_prefix: "{{ networking.subnet.cidr }}"
 
 - name: Allow intra-cluster TCP/UDP/ICMP within Talos SG (east-west)
   loop:

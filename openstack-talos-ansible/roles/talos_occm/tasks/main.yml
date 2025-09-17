@@ -1,0 +1,55 @@
+- name: Copy cloud conf to Jump Host
+  ansible.builtin.copy:
+    src: ../../templates/cloud.conf
+    dest: ~/cloud.conf
+
+- name: Create secret for OCCM
+  ansible.builtin.command:
+    kubectl create secret -n kube-system generic cloud-config --from-file=cloud.conf
+  args:
+    chdir: "~"
+    
+- name: Apt update
+  become: true
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install python3-requests & python3-urllib3 dari repo OS
+  become: true
+  ansible.builtin.package:
+    name:
+      - python3-requests
+      - python3-urllib3
+      - wget
+    state: present      
+
+- name: Apply role bindings manifest OCCM
+  ansible.builtin.command:
+    wget {{ talos.manifest_occm }}
+  args:
+    chdir: "~"
+
+- name: Edit line Node Selector on OCCM Daemonsets Manifest
+  ansible.builtin.replace:
+    path: ~/openstack-cloud-controller-manager-ds.yaml
+    regexp: '^(\s{8}node-role\.kubernetes\.io/control-plane:\s*).*$'
+    replace: '\1""'
+
+- name: Apply roles manifest OCCM
+  ansible.builtin.command:
+    kubectl apply -f {{ talos.roles_occm }}
+  args:
+    chdir: "~"
+
+- name: Apply role bindings manifest OCCM
+  ansible.builtin.command:
+    kubectl apply -f {{ talos.role_bind_occm }}
+  args:
+    chdir: "~"
+
+- name: Apply Daemonsets manifest OCCM
+  ansible.builtin.command:
+    kubectl apply -f ~/openstack-cloud-controller-manager-ds.yaml
+  args:
+    chdir: "~"

@@ -11,7 +11,7 @@
     boot_from_volume: "{{ servers.boot_from_volume }}"
     volume_size: "{{ servers.volume_size_gb }}"
     userdata: "{{ userdata_worker }}"
-    auto_ip: "{{ servers.worker_float}}"
+    auto_ip: false
     nics:
       - net-name: "{{ networking.net_name }}"
     security_groups: ["{{ security.talos_sg }}"]

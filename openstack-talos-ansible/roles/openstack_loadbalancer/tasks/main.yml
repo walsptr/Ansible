@@ -41,6 +41,15 @@
     loadbalancer: "{{ lb.name }}"
     wait: true
 
+- name: Create listener for HTTPS Connection
+  openstack.cloud.lb_listener:
+    cloud: "{{ openstack.cloud }}"
+    state: present
+    name: "{{ lb.listener_name_https }}"
+    protocol: "{{ lb.protocol }}"
+    protocol_port: "{{ lb.port_https }}"
+    loadbalancer: "{{ lb.name }}"
+    wait: true
 
 - name: Check if API pool exists
   ansible.builtin.command: >
@@ -61,6 +70,26 @@
   environment:
     OS_CLOUD: "{{ openstack.cloud }}"
   when: pool_show.rc != 0
+
+- name: Check if HTTPS Connection pool exists
+  ansible.builtin.command: >
+    openstack loadbalancer pool show {{ lb.pool_name_https }} -f value -c id
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  register: pool_show_https
+  failed_when: false
+  changed_when: false
+
+- name: Create HTTPS Connection pool with SOURCE_IP_PORT (OVN requirement)
+  ansible.builtin.command: >
+    openstack loadbalancer pool create
+    --name {{ lb.pool_name_https }}
+    --lb-algorithm SOURCE_IP_PORT
+    --listener {{ lb.listener_name_https }}
+    --protocol {{ lb.protocol }}
+  environment:
+    OS_CLOUD: "{{ openstack.cloud }}"
+  when: pool_show_https.rc != 0
 
 - name: Create health monitor for API pool
   openstack.cloud.lb_health_monitor:

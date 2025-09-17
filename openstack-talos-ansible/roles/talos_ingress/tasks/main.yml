@@ -1,0 +1,19 @@
+- name: Deploy ingress-nginx controller
+  shell: kubectl apply -f {{ talos.ingress_url }}
+
+- name: Wait for ingress controller pod to be running
+  shell: |
+    until kubectl get pods -n ingress-nginx | grep controller | grep Running; do
+      echo "Waiting for ingress controller to be ready..."
+      sleep 10
+    done
+
+- name: Patch service to LoadBalancer
+  shell: |
+    kubectl patch service ingress-nginx-controller \
+      -n ingress-nginx \
+      -p '{"spec": {"type": "LoadBalancer"}}'
+
+- name: Connect to Jump server with this IP
+  debug:
+    var: jump_public_vip

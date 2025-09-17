@@ -1,15 +1,36 @@
+- name: Check if jump server has floating ip or not
+  openstack.cloud.floating_ip_info:
+    port: "{{ ports.jump_port_name }}"
+    cloud: "{{ openstack.cloud }}"
+  register: jump_check_fip
+      
+- name: debug jump check fip
+  debug:
+    var: jump_check_info
+
 - name: Allocate+associate FIP for jump host port
   openstack.cloud.floating_ip:
     cloud: "{{ openstack.cloud }}"
     state: present
-    server: null
     network: "{{ openstack.external_network }}"
     server: "{{ servers.jump_name }}"
+    wait: true
   register: jump_fip
+  when: jump_check_fip.floating_ips | length == 0
 
-- name: Set fact jump_public_vip
+- name: debug jump fip
+  debug:
+    var: jump_fip
+
+- name: Set fact jump_public_vip (if not already exists)
   ansible.builtin.set_fact:
-    jump_public_vip: "{{ jump_fip.floating_ip.floating_ip_address }}"
+    jump_public_vip: "{{ jump_fip.floating_ips.floating_ip_address }}"
+  when: jump_check_fip.floating_ips | length == 0
+
+- name: Set fact jump_public_vip (if already exists)
+  ansible.builtin.set_fact:
+    jump_public_vip: "{{ jump_check_fip.floating_ips[0].floating_ip_address }}"
+  when: jump_check_fip.floating_ips | length > 0
 
 - name: Add dynamic inventory host for jump
   ansible.builtin.add_host:
@@ -25,13 +46,26 @@
     timeout: 600
     state: started
 
+- name: Checking LB have Floating IP or NOT
+  openstack.cloud.floating_ip_info:
+    cloud: "{{ openstack.cloud }}"
+    port: "{{ lb_id }}"
+  register: port_lb_info
+
 - name: Allocate+associate FIP to LB VIP
   ansible.builtin.command: >
     openstack floating ip create --port {{ lb_id }} {{ openstack.external_network }} -f json
   environment:
     OS_CLOUD: "{{ openstack.cloud }}"
   register: lb_fip
+  when: port_lb_info.floating_ips | length == 0
 
-- name: Set fact lb_public_vip
+- name: Set fact lb_public_vip (if vip not ready associate)
   ansible.builtin.set_fact:
     lb_public_vip: "{{ ((lb_fip.stdout | from_json).floating_ip_address) }}"
+  when: port_lb_info.floating_ips | length == 0
+
+- name: Set fact lb_public_vip (if vip already associate)
+  set_fact:
+    lb_public_vip: "{{ port_lb_info.floating_ips[0].floating_ip_address }}"
+  when: port_lb_info.floating_ips | length > 0

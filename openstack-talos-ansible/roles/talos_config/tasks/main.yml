@@ -1,4 +1,5 @@
 - name: Ensure curl and jq present
+  become: true
   ansible.builtin.package:
     name: [curl, jq]
     state: present
@@ -17,9 +18,16 @@
     talos_api_endpoint: >-
       {{ (hostvars['localhost'].lb_private_vip if talos.prefer_private_vip | bool else hostvars['localhost'].lb_public_vip | default(hostvars['localhost'].lb_private_vip)) }}
 
+- name: Copy templates patch.yaml
+  copy:
+    src: ../../templates/patch.yaml
+    dest: ~/
+    owner: "{{ talos.jump_user }}"
+    group: "{{ talos.jump_user }}"
+
 - name: Generate Talos cluster/machine configs
   ansible.builtin.command: >-
-    talosctl gen config {{ talos.cluster_name }} https://{{ talos_api_endpoint }}:{{ talos.kube_api_port }}
+    talosctl gen config {{ talos.cluster_name }} https://{{ talos_api_endpoint }}:{{ talos.kube_api_port }} --config-patch @patch.yaml
   args:
     chdir: "~"
   changed_when: false

@@ -11,7 +11,7 @@
     boot_from_volume: "{{ servers.boot_from_volume }}"
     volume_size: "{{ servers.volume_size_gb }}"
     userdata: "{{ userdata_cp }}"
-    auto_ip: "{{ servers.controller_float }}"
+    auto_ip: false
     nics:
       - port-name: "{{ ports.controller_prefix }}-{{ item }}"
   loop: "{{ range(0, servers.controller_count) | list }}"

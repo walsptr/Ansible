@@ -60,7 +60,3 @@
         label: "{{ item.name }}"
       vars:
         instance_name: "{{ item.name }}"
-
-
-
-

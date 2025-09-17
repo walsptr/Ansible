@@ -21,7 +21,6 @@ networking:
     allocation_pool_end: 172.16.41.200
   router_name: talos-router-ans
 
-
 lb:
   name: talos-load-balancer-ans
   provider: ovn
@@ -37,7 +36,9 @@ lb:
     type: TCP
     name: talos-load-balancer-health-ans
   allocate_fip: true
-
+  listener_name_https: talos-lb-listener-https
+  pool_name_https: talos-lb-pool-https
+  port_https: 443
 
 security:
   jump_sg: jump-secgroup-ans
@@ -55,8 +56,6 @@ servers:
   boot_from_volume: true
   volume_size_gb: 20
   assign_fip_to_controllers: false
-  controller_float: true
-  worker_float: false
 
 kubeconfig: /home/ubuntu/.kube/config
 
@@ -68,5 +67,9 @@ talos:
   kube_api_port: 6443
   artifacts_dir: artifacts
   jump_user: ubuntu
+  jump_homedir: /home/ubuntu
   prefer_private_vip: false
-
+  ingress_url: "https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.5/deploy/static/provider/baremetal/deploy.yaml"
+  manifest_occm: "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/master/manifests/controller-manager/openstack-cloud-controller-manager-ds.yaml"
+  role_bind_occm: "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/master/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml"
+  roles_occm: "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/master/manifests/controller-manager/cloud-controller-manager-roles.yaml"
